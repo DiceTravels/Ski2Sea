@@ -1,0 +1,263 @@
+---
+title: "s2s data story"
+author: "Isaac Stone Simonelli"
+date: "2024-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library (readxl)
+library(tidyverse)
+library(dplyr)
+library(janitor)
+library(ggplot2)
+```
+
+## R Markdown
+
+We're doing a bit of a silly story based on the data for the ski to sea registration event. First step is to read that information in from the excel sheet provided.
+
+
+```{r}
+
+s2s <- read.csv("All Racers May 8.csv")
+
+```
+
+This is a very clean spreadsheet that we're dealing with, but let's go ahead tidy it up.
+
+
+```{r}
+
+s2s <- s2s %>%
+  clean_names()
+
+```
+
+## Swag variables
+
+We're going to count how many sizes of each sized shirt were requested. That's in the "T-Shirt Size" column. But first we need to select only people who got shirts. So first step is to take a look at the swag column, where we have people who got bennies, nothing or a t-shirt. Because we're not we're not distiquishing between shirt types we need to do it this way.
+
+
+```{r}
+
+value_counts <- s2s %>%
+  mutate(category = case_when(
+    merchandise_item == "Beanie Hat" ~ "Beanie Hat",
+    merchandise_item == "Event T-Shirt" ~ "Shirt",
+    merchandise_item == "No merch for me, please donate funds to Bellingham Youth Paddle Sports" ~ "Donate to Paddle Sports",
+    is.na(merchandise_item) ~ "NA",
+    TRUE ~ "Other"
+  )) %>%
+  count(category)
+
+```
+
+Let's get this broken down by percentage
+
+```{r}
+
+value_counts <- s2s %>%
+  mutate(category = case_when(
+    merchandise_item == "Beanie Hat" ~ "Beanie Hat",
+    merchandise_item == "Event T-Shirt" ~ "Shirt",
+    merchandise_item == "No merch for me, please donate funds to Bellingham Youth Paddle Sports" ~ "Donate to Paddle Sports",
+    is.na(merchandise_item) ~ "NA",
+    TRUE ~ "Other"
+  )) %>%
+  count(category) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+  print()
+
+
+```
+
+
+So that's kind of interesting and fun. So the N/A represents people who have yet to fill out the registration form but their team has signed up. We'll want to explain that in the story.
+
+Now let's filter for sizes of shirts:
+
+```{r}
+
+shirt_db <- s2s %>%
+  filter(merchandise_item == "Event T-Shirt")
+
+```
+
+We're going to do another counting exercise but this time based on shirt sizes
+
+```{r}
+
+ size_counts <- shirt_db %>%
+  group_by(t_shirt_size) %>%
+  count()
+
+```
+
+Let's see if we can get a breakdown based on percentages to compare.
+
+Though it varies slightly depending on what t-shirt vendor is supplying the information, the average distribution suggested is 2% xs, 20% small, 28% medium, 27% large, 16% XL, 5% 2XL, and 3Xl
+
+In total, it breaks down like this:
+XS: 1 percent.
+S: 7 percent.
+M: 28 percent.
+L: 30 percent.
+XL: 20 percent.
+2XL: 12 percent.
+3XL: 2 percent.
+
+```{r}
+
+size_percentage <- shirt_db %>%
+  group_by(t_shirt_size) %>%
+  summarise(count = n()) %>%
+  mutate(percentage = count / sum(count) * 100) %>%
+  print()
+
+```
+
+## Demographic Data
+
+We also need some of the more generic demographic data broken down for the story?
+
+```{r}
+
+gender_counts <- s2s %>%
+  mutate(category = case_when(
+    gender == "male" ~ "male",
+    gender == "female" ~ "female",
+    gender == "non_binary" ~ "non_binary",
+    is.na(merchandise_item) ~ "NA",
+    TRUE ~ "N/A"
+  )) %>%
+  count(category)
+
+```
+
+Let's get this broken down by percentage
+
+```{r}
+
+value_counts <- s2s %>%
+  mutate(category = case_when(
+    gender == "male" ~ "male",
+    gender == "female" ~ "female",
+    gender == "non_binary" ~ "non_binary",
+    is.na(merchandise_item) ~ "NA",
+    TRUE ~ "N/A"
+  )) %>%
+  count(category) %>%
+  mutate(percentage = n / sum(n) * 100) %>%
+  print()
+
+
+```
+
+
+Now let's get a breakdown of age groups:
+
+```{r}
+
+# Count the number of each value in the "age" column
+age_counts <- s2s %>%
+  count(age, name = "count") %>%
+  arrange(desc(count)) %>%
+  slice_head(n = 5)
+
+# Print the result
+print(age_counts)
+
+```
+
+Let's also grab the average age of participants:
+
+```{r}
+
+average_age <- s2s %>%
+  summarise(mean_age = mean(age, na.rm = TRUE))
+
+print(average_age)
+
+```
+
+We'll also go ahead and figure out what percent of folks are from Bellingham. Got to play into that hometown vibe.
+
+```{r}
+
+# Calculate the percentage of "Bellingham" values in the "city" column
+bellingham_percentage <- s2s %>%
+  summarise(percent_bellingham = mean(city == "Bellingham") * 100)
+
+# Print the result
+print(bellingham_percentage)
+
+
+```
+
+We're also going to want the total count:
+
+```{r}
+
+# Calculate the total number of "Bellingham" values in the "city" column
+bellingham_count <- s2s %>%
+  summarise(total_bellingham = sum(city == "Bellingham"))
+
+# Print the result
+print(bellingham_count)
+
+```
+
+For fun, let's see what we have from Seattle
+
+```{r}
+
+# Calculate the percentage of "Bellingham" values in the "city" column
+seattle_percentage <- s2s %>%
+  summarise(percent_seattle = mean(city == "Seattle") * 100)
+
+# Print the result
+print(seattle_percentage)
+
+```
+
+```{r}
+
+seattle_count <- s2s %>%
+  summarise(total_seattle = sum(city == "Seattle"))
+
+# Print the result
+print(seattle_count)
+
+```
+
+
+Let's take a look at how many people are coming in from out of county.
+
+```{r}
+
+out_of_country_percentage <- s2s %>%
+  filter(country != "USA") %>%
+  group_by(country) %>%
+  summarise(percent = n() / nrow(s2s) * 100)
+
+# Print the result
+print(out_of_country_percentage)
+
+```
+
+## Published Story
+The live version of the story can be found here: https://www.cascadiadaily.com/2024/may/23/ski-to-sea-by-the-numbers-3/
+
+
+
+
+
+
+
+
+
+
+
+
